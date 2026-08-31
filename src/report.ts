@@ -135,9 +135,9 @@ export function renderHelpMarkdown(): string {
 - \`/usage show <path> [path...]\` — current session with temporary metrics
 - \`/usage today|all|7d|2w|3m\` — global totals and models
 - \`/usage <start> <end>\` — global totals and models for an inclusive date range
-- \`/usage daily|weekly|monthly <range>\` — global trend using the same range syntax
+- \`/usage daily|weekly|monthly [range]\` — global trend; omitted range defaults to 7 days / 4 weeks / 6 months
 
-Ranges use aligned local calendar days, Monday-based weeks, and calendar months. \`m\` means months. Explicit dates use \`YYYY-MM-DD\` with inclusive endpoints. Current and edge buckets can be partial.
+Ranges use aligned local calendar days, Monday-based weeks, and calendar months. \`m\` means months. Bare counts follow the bucket: \`daily 7\` is 7 days, \`weekly 4\` is 4 weeks, \`monthly 6\` is 6 months. Explicit dates use \`YYYY-MM-DD\` with inclusive endpoints. Current and edge buckets can be partial.
 
 ### Configuration
 

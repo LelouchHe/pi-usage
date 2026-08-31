@@ -40,9 +40,9 @@ Commands:
 - `/usage show usage.input usage.output` — temporary current-Session metrics
 - `/usage today`, `/usage 7d`, `/usage 2w`, `/usage 3m`, `/usage all` — global summary
 - `/usage 2026-08-01 2026-08-15` — global inclusive date range
-- `/usage daily|weekly|monthly <range>` — global trend using the same range syntax
+- `/usage daily|weekly|monthly [range]` — global trend; range defaults to 7 days / 4 weeks / 6 months
 
-`d`, `w`, and `m` mean aligned local calendar days, Monday-based weeks, and calendar months. Current and edge trend buckets can be partial. Explicit dates use `YYYY-MM-DD` with inclusive endpoints.
+`d`, `w`, and `m` mean aligned local calendar days, Monday-based weeks, and calendar months. Bare counts follow the bucket: `daily 7` is 7 days, `weekly 4` is 4 weeks, `monthly 6` is 6 months. Current and edge trend buckets can be partial. Explicit dates use `YYYY-MM-DD` with inclusive endpoints.
 
 ```markdown
 ## Usage · Current session

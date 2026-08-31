@@ -22,6 +22,16 @@ const BUCKETS: Record<string, TrendBucket | undefined> = {
   weekly: "week",
   monthly: "month",
 };
+const BUCKET_UNIT: Record<TrendBucket, "d" | "w" | "m"> = {
+  day: "d",
+  week: "w",
+  month: "m",
+};
+const DEFAULT_TREND_RANGE: Record<TrendBucket, string> = {
+  day: "7d",
+  week: "4w",
+  month: "6m",
+};
 const MAX_TREND_BUCKETS = 366;
 
 export function parseUsageQuery(args: string, now = new Date()): UsageQuery {
@@ -36,8 +46,7 @@ export function parseUsageQuery(args: string, now = new Date()): UsageQuery {
 
   const bucket = BUCKETS[parts[0]];
   if (bucket) {
-    if (parts.length === 1) throw new Error(`${parts[0]} requires a range`);
-    const range = parseRange(parts.slice(1), now);
+    const range = parseRange(trendRangeArgs(parts.slice(1), bucket), now);
     if (range.start === null || range.endExclusive === null) {
       throw new Error(`${parts[0]} does not support an unbounded range`);
     }
@@ -59,6 +68,13 @@ export function parseUsageQuery(args: string, now = new Date()): UsageQuery {
   const rangeParts = parts[0] === "range" ? parts.slice(1) : parts;
   const range = parseRange(rangeParts, now);
   return { kind: "summary", ...range };
+}
+
+function trendRangeArgs(args: string[], bucket: TrendBucket): string[] {
+  if (args.length === 0) return [DEFAULT_TREND_RANGE[bucket]];
+  if (args.length === 1 && /^\d+$/.test(args[0]))
+    return [`${args[0]}${BUCKET_UNIT[bucket]}`];
+  return args;
 }
 
 function parseRange(

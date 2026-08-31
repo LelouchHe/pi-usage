@@ -54,6 +54,46 @@ test("trend query uses a named bucket and the same range syntax", () => {
     start: new Date(2026, 5, 1).getTime(),
     endExclusive: new Date(2026, 7, 31).getTime(),
   });
+  // Bare counts default to the bucket unit.
+  assert.deepEqual(parseUsageQuery("daily 7", now), {
+    kind: "trend",
+    bucket: "day",
+    start: new Date(2026, 7, 24).getTime(),
+    endExclusive: new Date(2026, 7, 31).getTime(),
+  });
+  assert.deepEqual(parseUsageQuery("weekly 4", now), {
+    kind: "trend",
+    bucket: "week",
+    start: new Date(2026, 7, 3).getTime(),
+    endExclusive: new Date(2026, 7, 31).getTime(),
+  });
+  assert.deepEqual(parseUsageQuery("monthly 6", now), {
+    kind: "trend",
+    bucket: "month",
+    start: new Date(2026, 2, 1).getTime(),
+    endExclusive: new Date(2026, 7, 31).getTime(),
+  });
+});
+
+test("trend query falls back to sensible default ranges", () => {
+  assert.deepEqual(parseUsageQuery("daily", now), {
+    kind: "trend",
+    bucket: "day",
+    start: new Date(2026, 7, 24).getTime(),
+    endExclusive: new Date(2026, 7, 31).getTime(),
+  });
+  assert.deepEqual(parseUsageQuery("weekly", now), {
+    kind: "trend",
+    bucket: "week",
+    start: new Date(2026, 7, 3).getTime(),
+    endExclusive: new Date(2026, 7, 31).getTime(),
+  });
+  assert.deepEqual(parseUsageQuery("monthly", now), {
+    kind: "trend",
+    bucket: "month",
+    start: new Date(2026, 2, 1).getTime(),
+    endExclusive: new Date(2026, 7, 31).getTime(),
+  });
   assert.deepEqual(parseUsageQuery("monthly 2026-01-15 2026-03-10", now), {
     kind: "trend",
     bucket: "month",
@@ -75,6 +115,9 @@ test("query parser rejects malformed ranges and missing trend windows", () => {
     /Invalid date/,
   );
   assert.throws(() => parseUsageQuery("0d", now), /positive/);
-  assert.throws(() => parseUsageQuery("weekly", now), /requires a range/);
+  assert.throws(
+    () => parseUsageQuery("daily all", now),
+    /does not support an unbounded range/,
+  );
   assert.throws(() => parseUsageQuery("unknown", now), /Unknown usage range/);
 });

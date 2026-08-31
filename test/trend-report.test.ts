@@ -103,7 +103,7 @@ test("missing or non-numeric configured fields render as n/a and are reported", 
 test("help is a concise command reference that links to full documentation", () => {
   const help = renderHelpMarkdown();
   assert.match(help, /\/usage show <path>/);
-  assert.match(help, /daily\|weekly\|monthly <range>/);
+  assert.match(help, /daily\|weekly\|monthly \[range\]/);
   assert.match(help, /github\.com\/LelouchHe\/pi-usage/);
   assert.doesNotMatch(help, /usage\.cacheWrite1h/);
 });
