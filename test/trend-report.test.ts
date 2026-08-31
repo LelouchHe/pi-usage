@@ -4,7 +4,7 @@ import { DEFAULT_CONFIG } from "../src/config.ts";
 import {
   missingMetricFields,
   renderHelpMarkdown,
-  renderRangeMarkdown,
+  renderSummaryMarkdown,
   renderTrendMarkdown,
 } from "../src/report.ts";
 import type { UsageRecord } from "../src/types.ts";
@@ -64,7 +64,7 @@ test("daily trend includes empty dates and marks the current bucket", () => {
 });
 
 test("range report shows total metrics and a model breakdown", () => {
-  const markdown = renderRangeMarkdown({
+  const markdown = renderSummaryMarkdown({
     records,
     start: new Date(2026, 7, 28).getTime(),
     endExclusive: new Date(2026, 7, 31).getTime(),
@@ -86,7 +86,7 @@ test("missing or non-numeric configured fields render as n/a and are reported", 
       format: "number" as const,
     },
   ];
-  const markdown = renderRangeMarkdown({
+  const markdown = renderSummaryMarkdown({
     records,
     start: new Date(2026, 7, 28).getTime(),
     endExclusive: new Date(2026, 7, 31).getTime(),
@@ -102,8 +102,8 @@ test("missing or non-numeric configured fields render as n/a and are reported", 
 
 test("help documents query syntax and known fields as examples", () => {
   const help = renderHelpMarkdown();
-  assert.match(help, /\/usage daily \[count\]/);
-  assert.match(help, /\/usage weekly <start> <end>/);
+  assert.match(help, /\/usage show <path>/);
+  assert.match(help, /daily\|weekly\|monthly <range>/);
   assert.match(help, /usage\.cacheWrite1h/);
   assert.match(help, /subset of `usage\.output`/);
   assert.match(help, /arbitrary nested numeric field/);

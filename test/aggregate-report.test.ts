@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { aggregatePeriod, metricValue } from "../src/aggregate.ts";
 import { DEFAULT_CONFIG } from "../src/config.ts";
-import { renderUsageMarkdown } from "../src/report.ts";
+import { renderSessionMarkdown, renderSummaryMarkdown } from "../src/report.ts";
 import type { UsageRecord } from "../src/types.ts";
 
 const currentProject = "/code/webagent/main";
@@ -52,9 +52,9 @@ const records: UsageRecord[] = [
   {
     id: "s2:t1:tool",
     timestamp: Date.parse("2026-08-30T12:01:00Z"),
-    sessionId: "s2",
-    cwd: "/code/other",
-    project: "other",
+    sessionId: "s1",
+    cwd: currentProject,
+    project: "webagent/main",
     source: "tool_result_aggregate",
     provider: "pi",
     model: "tool-aggregates",
@@ -112,38 +112,25 @@ test("period aggregation separates current project and model totals", () => {
   assert.equal(all.all["usage.totalTokens"], 1700000);
 });
 
-test("markdown report groups content under Today and All time without redundant totals", () => {
-  const markdown = renderUsageMarkdown({
+test("session report includes tool rollups while global summary excludes them", () => {
+  const session = renderSessionMarkdown({
     records,
-    config: DEFAULT_CONFIG,
-    currentProject,
-    now,
+    sessionId: "s1",
+    metrics: DEFAULT_CONFIG.metrics,
+    partial: false,
+  });
+  assert.match(session, /\*\*2M tokens · \$4\.40\*\*/);
+  assert.match(session, /`pi\/tool-aggregates`/);
+
+  const global = renderSummaryMarkdown({
+    records,
+    start: new Date("2026-08-30T00:00:00Z").getTime(),
+    endExclusive: new Date("2026-08-31T00:00:00Z").getTime(),
+    label: "Today",
+    metrics: DEFAULT_CONFIG.metrics,
     partial: true,
   });
-
-  assert.equal(
-    markdown,
-    `## Usage
-
-### Today
-
-**Current:** 1M tokens · $2.20  
-**All:** 1.5M tokens · $2.70
-
-| Model | Tokens | Cost |
-|---|---:|---:|
-| \`github-copilot/gpt-5.6-sol\` | 1M | $2.20 |
-| \`github-copilot/claude-haiku-4.5\` | 500K | $0.50 |
-
-### All time
-
-**1.7M tokens · $2.95**
-
-| Model | Tokens | Cost |
-|---|---:|---:|
-| \`github-copilot/gpt-5.6-sol\` | 1.2M | $2.45 |
-| \`github-copilot/claude-haiku-4.5\` | 500K | $0.50 |
-
-> History import is running; totals are partial.`,
-  );
+  assert.match(global, /\*\*1\.5M tokens · \$2\.70\*\*/);
+  assert.doesNotMatch(global, /tool-aggregates/);
+  assert.match(global, /totals are partial/);
 });

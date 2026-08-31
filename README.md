@@ -33,39 +33,26 @@ pi-acp --extension-commands
 
 Run `/usage` in Pi or the agent-command equivalent in the ACP client, such as `//usage` in WebAgent.
 
-Additional Markdown reports:
+Commands:
 
+- `/usage` — current Session, including Tool/Subagent usage rollups
 - `/usage help`
-- `/usage range 2026-08-01 2026-08-15`
-- `/usage daily [count]` (default 7, maximum 365)
-- `/usage weekly [count]` (default 8, maximum 104)
-- `/usage monthly [count]` (default 12, maximum 60)
-- `/usage daily|weekly|monthly <start> <end>`
+- `/usage show usage.input usage.output` — temporary current-Session metrics
+- `/usage today`, `/usage 7d`, `/usage 2w`, `/usage 3m`, `/usage all` — global summary
+- `/usage 2026-08-01 2026-08-15` — global inclusive date range
+- `/usage daily|weekly|monthly <range>` — global trend using the same range syntax
 
-Dates use `YYYY-MM-DD`, machine-local time, and inclusive endpoints. Weeks start on Monday; the first and last weekly or monthly bucket may be partial. Count-based trends include the current incomplete day, week, or month through today and mark it as `Current`.
+`d`, `w`, and `m` mean aligned local calendar days, Monday-based weeks, and calendar months. Current and edge trend buckets can be partial. Explicit dates use `YYYY-MM-DD` with inclusive endpoints.
 
 ```markdown
-## Usage
+## Usage · Current session
 
-### Today
+**1.2M tokens · $2.84**
 
-**Current:** 1.2M tokens · $2.84
-
-**All:** 2.7M tokens · $5.31
-
-| Model                             | Tokens |  Cost |
-| --------------------------------- | -----: | ----: |
-| `github-copilot/gpt-5.6-sol`      |   1.6M | $3.72 |
-| `github-copilot/claude-haiku-4.5` |   720K | $0.91 |
-
-### All time
-
-**84.2M tokens · $128.40**
-
-| Model                             | Tokens |   Cost |
-| --------------------------------- | -----: | -----: |
-| `github-copilot/gpt-5.6-sol`      |  46.8M | $78.20 |
-| `github-copilot/claude-haiku-4.5` |  21.4M | $19.70 |
+| Model                        | Tokens |  Cost |
+| ---------------------------- | -----: | ----: |
+| `github-copilot/gpt-5.6-sol` |   1.0M | $2.20 |
+| `pi/tool-aggregates`         |   200K | $0.64 |
 ```
 
 The first report may include `History import is running; totals are partial.` Import continues silently in the background. Later reports omit the note after the initial import completes.
@@ -76,18 +63,6 @@ Create `~/.pi/agent/pi-usage/config.json` to override the default report:
 
 ```json
 {
-  "sections": [
-    {
-      "range": "today",
-      "current": true,
-      "models": true
-    },
-    {
-      "range": "all",
-      "current": false,
-      "models": true
-    }
-  ],
   "metrics": [
     {
       "path": "usage.totalTokens",
@@ -103,17 +78,7 @@ Create `~/.pi/agent/pi-usage/config.json` to override the default report:
 }
 ```
 
-All configuration properties are required. The values above are the complete defaults.
-
-### Section properties
-
-| Property  | Values                          | Meaning                                                                  |
-| --------- | ------------------------------- | ------------------------------------------------------------------------ |
-| `range`   | `today`, `week`, `month`, `all` | Time range shown by this section                                         |
-| `current` | `true`, `false`                 | Also show the current canonical cwd; all-project totals are always shown |
-| `models`  | `true`, `false`                 | Show a `provider/model` breakdown                                        |
-
-Period boundaries use the machine's local timezone, and weeks start on Monday. Section titles are derived from `range`.
+All configuration properties are required. The values above are the complete defaults. Command arguments determine the report range and layout; configuration only chooses metrics.
 
 ### Metric properties
 
@@ -156,7 +121,7 @@ Usage records are append-only JSONL files:
 └── import.lock/        # present only while an importer is active
 ```
 
-Each record contains timestamp, session ID, canonical cwd, project display name, source, provider, actual and requested model when available, API, and Pi's complete Usage object. Prompt and response content are never copied into the usage ledger. ToolResult aggregate usage is retained with source `tool_result_aggregate` for future attribution, but is not included in reports.
+Each record contains timestamp, session ID, canonical cwd, project display name, source, provider, actual and requested model when available, API, and Pi's complete Usage object. Prompt and response content are never copied into the usage ledger. ToolResult aggregate usage is retained with source `tool_result_aggregate`. Current-Session reports include it so delegated work is visible; global reports exclude it because Subagent Sessions are already counted independently.
 
 Project identity uses canonical cwd for aggregation. Display names prefer `repository/worktree`, fall back to the directory name outside Git, and include relative subdirectories when needed.
 

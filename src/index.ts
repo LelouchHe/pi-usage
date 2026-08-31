@@ -9,16 +9,16 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { Container, Markdown, matchesKey, Text } from "@earendil-works/pi-tui";
 import { join } from "node:path";
-import { DEFAULT_CONFIG, parseConfig } from "./config.ts";
+import { DEFAULT_CONFIG, parseConfig, temporaryMetric } from "./config.ts";
 import { HistoryImporter } from "./importer.ts";
 import { resolveProject, type ProjectIdentity } from "./project.ts";
 import { parseUsageQuery, type UsageQuery } from "./query.ts";
 import {
   missingMetricFields,
   renderHelpMarkdown,
-  renderRangeMarkdown,
+  renderSessionMarkdown,
+  renderSummaryMarkdown,
   renderTrendMarkdown,
-  renderUsageMarkdown,
 } from "./report.ts";
 import {
   assistantRecordId,
@@ -129,7 +129,6 @@ export default function piUsage(pi: ExtensionAPI): void {
         return;
       }
 
-      const identity = project ?? resolveProject(ctx.cwd);
       const partial = !importer.isComplete();
       importer.start((message) => {
         ctx.ui.notify(message, "error");
@@ -146,9 +145,31 @@ export default function piUsage(pi: ExtensionAPI): void {
         );
       }
 
+      let metrics = config.metrics;
+      if (query.kind === "show") {
+        try {
+          metrics = query.paths.map(temporaryMetric);
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : String(error);
+          ctx.ui.notify(message, "warning");
+          return;
+        }
+      }
+
       const records = store.readAll();
+      const sessionQuery = query.kind === "session" || query.kind === "show";
+      const relevantRecords = sessionQuery
+        ? records.filter(
+            (record) => record.sessionId === ctx.sessionManager.getSessionId(),
+          )
+        : records;
       if (!partial) {
-        const missing = missingMetricFields(records, config.metrics);
+        const missing = missingMetricFields(
+          relevantRecords,
+          metrics,
+          sessionQuery,
+        );
         if (missing.length > 0) {
           ctx.ui.notify(
             `Configured metrics have no numeric values: ${missing.join(", ")}`,
@@ -156,31 +177,34 @@ export default function piUsage(pi: ExtensionAPI): void {
           );
         }
       }
-      const markdown =
-        query.kind === "default"
-          ? renderUsageMarkdown({
-              records,
-              config,
-              currentProject: identity.cwd,
-              partial,
-            })
-          : query.kind === "range"
-            ? renderRangeMarkdown({
-                records,
-                start: query.start,
-                endExclusive: query.endExclusive,
-                label: query.label,
-                metrics: config.metrics,
-                partial,
-              })
-            : renderTrendMarkdown({
-                records,
-                bucket: query.bucket,
-                start: query.start,
-                endExclusive: query.endExclusive,
-                metrics: config.metrics,
-                partial,
-              });
+
+      let markdown: string;
+      if (query.kind === "session" || query.kind === "show") {
+        markdown = renderSessionMarkdown({
+          records,
+          sessionId: ctx.sessionManager.getSessionId(),
+          metrics,
+          partial,
+        });
+      } else if (query.kind === "summary") {
+        markdown = renderSummaryMarkdown({
+          records,
+          start: query.start,
+          endExclusive: query.endExclusive,
+          label: query.label,
+          metrics,
+          partial,
+        });
+      } else {
+        markdown = renderTrendMarkdown({
+          records,
+          bucket: query.bucket,
+          start: query.start,
+          endExclusive: query.endExclusive,
+          metrics,
+          partial,
+        });
+      }
       await showMarkdown(markdown, ctx);
     },
   });

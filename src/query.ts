@@ -1,9 +1,15 @@
 export type TrendBucket = "day" | "week" | "month";
 
 export type UsageQuery =
-  | { kind: "default" }
+  | { kind: "session" }
   | { kind: "help" }
-  | { kind: "range"; start: number; endExclusive: number; label: string }
+  | { kind: "show"; paths: string[] }
+  | {
+      kind: "summary";
+      start: number | null;
+      endExclusive: number | null;
+      label: string;
+    }
   | {
       kind: "trend";
       bucket: TrendBucket;
@@ -11,82 +17,97 @@ export type UsageQuery =
       endExclusive: number;
     };
 
-const TREND_COMMANDS: Record<
-  string,
-  { bucket: TrendBucket; defaultCount: number; maxCount: number } | undefined
-> = {
-  daily: { bucket: "day", defaultCount: 7, maxCount: 365 },
-  weekly: { bucket: "week", defaultCount: 8, maxCount: 104 },
-  monthly: { bucket: "month", defaultCount: 12, maxCount: 60 },
-} as const;
+const BUCKETS: Record<string, TrendBucket | undefined> = {
+  daily: "day",
+  weekly: "week",
+  monthly: "month",
+};
+const MAX_TREND_BUCKETS = 366;
 
 export function parseUsageQuery(args: string, now = new Date()): UsageQuery {
   const parts = args.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return { kind: "default" };
+  if (parts.length === 0) return { kind: "session" };
   if (parts[0] === "help" && parts.length === 1) return { kind: "help" };
-
-  if (parts[0] === "range") {
-    if (parts.length !== 3)
-      throw new Error("Usage: /usage range <YYYY-MM-DD> <YYYY-MM-DD>");
-    const range = parseDateRange(parts[1], parts[2]);
-    return { kind: "range", ...range, label: `${parts[1]} – ${parts[2]}` };
+  if (parts[0] === "show") {
+    if (parts.length < 2)
+      throw new Error("Usage: /usage show <path> [path...]");
+    return { kind: "show", paths: parts.slice(1) };
   }
 
-  const trend = TREND_COMMANDS[parts[0]];
-  if (!trend) throw new Error(`Unknown usage command: ${parts[0]}`);
-
-  if (parts.length === 1)
-    return countTrend(trend.bucket, trend.defaultCount, now);
-  if (parts.length === 2 && /^\d+$/.test(parts[1])) {
-    const count = Number(parts[1]);
-    if (count < 1 || count > trend.maxCount) {
+  const bucket = BUCKETS[parts[0]];
+  if (bucket) {
+    if (parts.length === 1) throw new Error(`${parts[0]} requires a range`);
+    const range = parseRange(parts.slice(1), now);
+    if (range.start === null || range.endExclusive === null) {
+      throw new Error(`${parts[0]} does not support an unbounded range`);
+    }
+    if (
+      countBuckets(range.start, range.endExclusive, bucket) > MAX_TREND_BUCKETS
+    ) {
       throw new Error(
-        `${parts[0]} count must be between 1 and ${trend.maxCount}`,
+        `Trend output cannot exceed ${MAX_TREND_BUCKETS} buckets`,
       );
     }
-    return countTrend(trend.bucket, count, now);
-  }
-  if (parts.length === 3) {
-    const range = parseDateRange(parts[1], parts[2]);
-    return { kind: "trend", bucket: trend.bucket, ...range };
+    return {
+      kind: "trend",
+      bucket,
+      start: range.start,
+      endExclusive: range.endExclusive,
+    };
   }
 
-  throw new Error(
-    `Usage: /usage ${parts[0]} [count] or /usage ${parts[0]} <start> <end>`,
+  const rangeParts = parts[0] === "range" ? parts.slice(1) : parts;
+  const range = parseRange(rangeParts, now);
+  return { kind: "summary", ...range };
+}
+
+function parseRange(
+  parts: string[],
+  now: Date,
+): { start: number | null; endExclusive: number | null; label: string } {
+  if (parts.length === 1 && parts[0] === "today") {
+    return {
+      start: dayStart(now),
+      endExclusive: nextDay(now),
+      label: "Today",
+    };
+  }
+  if (parts.length === 1 && parts[0] === "all") {
+    return { start: null, endExclusive: null, label: "All time" };
+  }
+  if (parts.length === 1) return durationRange(parts[0], now);
+  if (parts.length === 2) {
+    const start = parseLocalDate(parts[0]);
+    const end = parseLocalDate(parts[1]);
+    if (start.getTime() > end.getTime()) {
+      throw new Error("Start date must be before or equal to end date");
+    }
+    return {
+      start: start.getTime(),
+      endExclusive: nextDay(end),
+      label: `${parts[0]} – ${parts[1]}`,
+    };
+  }
+  throw new Error("Unknown usage range");
+}
+
+function durationRange(
+  value: string,
+  now: Date,
+): { start: number; endExclusive: number; label: string } {
+  const match = /^(\d+)([dwm])$/.exec(value);
+  if (!match) throw new Error(`Unknown usage range: ${value}`);
+  const count = Number(match[1]);
+  if (!Number.isSafeInteger(count) || count <= 0)
+    throw new Error("Range count must be positive");
+  const unit = match[2];
+  const start = new Date(
+    bucketStart(now, unit === "d" ? "day" : unit === "w" ? "week" : "month"),
   );
-}
-
-function countTrend(bucket: TrendBucket, count: number, now: Date): UsageQuery {
-  const currentStart = bucketStart(now, bucket);
-  const start = new Date(currentStart);
-  if (bucket === "day") start.setDate(start.getDate() - (count - 1));
-  else if (bucket === "week") start.setDate(start.getDate() - 7 * (count - 1));
+  if (unit === "d") start.setDate(start.getDate() - (count - 1));
+  else if (unit === "w") start.setDate(start.getDate() - 7 * (count - 1));
   else start.setMonth(start.getMonth() - (count - 1));
-
-  const endExclusive = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate() + 1,
-  ).getTime();
-  return { kind: "trend", bucket, start: start.getTime(), endExclusive };
-}
-
-function parseDateRange(
-  startText: string,
-  endText: string,
-): { start: number; endExclusive: number } {
-  const start = parseLocalDate(startText);
-  const end = parseLocalDate(endText);
-  if (start.getTime() > end.getTime())
-    throw new Error("Start date must be before or equal to end date");
-  return {
-    start: start.getTime(),
-    endExclusive: new Date(
-      end.getFullYear(),
-      end.getMonth(),
-      end.getDate() + 1,
-    ).getTime(),
-  };
+  return { start: start.getTime(), endExclusive: nextDay(now), label: value };
 }
 
 function parseLocalDate(value: string): Date {
@@ -106,13 +127,42 @@ function parseLocalDate(value: string): Date {
   return date;
 }
 
+function countBuckets(
+  start: number,
+  endExclusive: number,
+  bucket: TrendBucket,
+): number {
+  let count = 0;
+  let cursor = bucketStart(new Date(start), bucket);
+  while (cursor < endExclusive && count <= MAX_TREND_BUCKETS) {
+    const date = new Date(cursor);
+    if (bucket === "day") date.setDate(date.getDate() + 1);
+    else if (bucket === "week") date.setDate(date.getDate() + 7);
+    else date.setMonth(date.getMonth() + 1);
+    cursor = date.getTime();
+    count += 1;
+  }
+  return count;
+}
+
+function dayStart(date: Date): number {
+  return new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+  ).getTime();
+}
+
+function nextDay(date: Date): number {
+  return new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate() + 1,
+  ).getTime();
+}
+
 export function bucketStart(date: Date, bucket: TrendBucket): number {
-  if (bucket === "day")
-    return new Date(
-      date.getFullYear(),
-      date.getMonth(),
-      date.getDate(),
-    ).getTime();
+  if (bucket === "day") return dayStart(date);
   if (bucket === "month")
     return new Date(date.getFullYear(), date.getMonth(), 1).getTime();
   const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());

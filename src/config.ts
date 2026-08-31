@@ -1,49 +1,40 @@
-import type { MetricConfig, SectionConfig, UsageConfig } from "./types.ts";
+import type { MetricConfig, UsageConfig } from "./types.ts";
 
 export const DEFAULT_CONFIG: UsageConfig = {
-  sections: [
-    { range: "today", current: true, models: true },
-    { range: "all", current: false, models: true },
-  ],
   metrics: [
     { path: "usage.totalTokens", label: "Tokens", format: "tokens" },
     { path: "usage.cost.total", label: "Cost", format: "usd" },
   ],
 };
 
-const RANGES = new Set(["today", "week", "month", "all"]);
 const FORMATS = new Set(["tokens", "usd", "number"]);
 const UNSAFE_PATH_SEGMENTS = new Set(["__proto__", "prototype", "constructor"]);
+const TOKEN_PATHS = new Set([
+  "usage.input",
+  "usage.output",
+  "usage.cacheRead",
+  "usage.cacheWrite",
+  "usage.cacheWrite1h",
+  "usage.reasoning",
+  "usage.totalTokens",
+]);
 
 export function parseConfig(value: unknown): UsageConfig {
   if (!value || typeof value !== "object")
     return structuredClone(DEFAULT_CONFIG);
-  const raw = value as { sections?: unknown; metrics?: unknown };
-  if (!Array.isArray(raw.sections) || !Array.isArray(raw.metrics)) {
-    throw new Error("Config must contain sections and metrics arrays");
+  const raw = value as { metrics?: unknown };
+  if (!Array.isArray(raw.metrics)) {
+    throw new Error("Config must contain a metrics array");
   }
 
-  const sections = raw.sections.map(parseSection);
   const metrics = raw.metrics.map(parseMetric);
-  if (sections.length === 0 || metrics.length === 0)
-    throw new Error("Config sections and metrics cannot be empty");
-  return { sections, metrics };
+  if (metrics.length === 0) throw new Error("Config metrics cannot be empty");
+  return { metrics };
 }
 
-function parseSection(value: unknown): SectionConfig {
-  const item = value as Partial<SectionConfig>;
-  if (!RANGES.has(String(item.range)))
-    throw new Error(`Unsupported section range: ${String(item.range)}`);
-  return {
-    range: item.range as SectionConfig["range"],
-    current: item.current === true,
-    models: item.models === true,
-  };
-}
-
-function parseMetric(value: unknown): MetricConfig {
+export function parseMetric(value: unknown): MetricConfig {
   const item = value as Partial<MetricConfig>;
-  if (typeof item.path !== "string" || !isSafeFieldPath(item.path)) {
+  if (typeof item.path !== "string" || !isSafeMetricPath(item.path)) {
     throw new Error(`Invalid metric field path: ${String(item.path)}`);
   }
   if (typeof item.label !== "string" || !item.label.trim())
@@ -57,7 +48,22 @@ function parseMetric(value: unknown): MetricConfig {
   };
 }
 
-function isSafeFieldPath(field: string): boolean {
+export function temporaryMetric(path: string): MetricConfig {
+  if (!isSafeMetricPath(path)) {
+    throw new Error(`Invalid metric field path: ${path}`);
+  }
+  return {
+    path,
+    label: path,
+    format: path.startsWith("usage.cost.")
+      ? "usd"
+      : TOKEN_PATHS.has(path)
+        ? "tokens"
+        : "number",
+  };
+}
+
+export function isSafeMetricPath(field: string): boolean {
   const segments = field.split(".");
   return (
     segments.length > 0 &&

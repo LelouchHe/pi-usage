@@ -31,10 +31,11 @@ export function aggregateRange(
   start: number | null,
   endExclusive: number | null,
   currentProject = "",
+  includeRollups = false,
 ): PeriodTotals {
   const selected = records.filter(
     (record) =>
-      record.source !== "tool_result_aggregate" &&
+      (includeRollups || record.source !== "tool_result_aggregate") &&
       (start === null || record.timestamp >= start) &&
       (endExclusive === null || record.timestamp < endExclusive),
   );

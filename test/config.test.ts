@@ -1,36 +1,41 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_CONFIG, parseConfig } from "../src/config.ts";
+import { DEFAULT_CONFIG, parseConfig, temporaryMetric } from "../src/config.ts";
 
-test("default config reports today and all time with additive token and cost fields", () => {
-  assert.deepEqual(DEFAULT_CONFIG.sections, [
-    { range: "today", current: true, models: true },
-    { range: "all", current: false, models: true },
-  ]);
-  assert.deepEqual(DEFAULT_CONFIG.metrics, [
-    { path: "usage.totalTokens", label: "Tokens", format: "tokens" },
-    { path: "usage.cost.total", label: "Cost", format: "usd" },
-  ]);
-});
-
-test("config accepts future numeric usage paths without a package update", () => {
-  const config = parseConfig({
-    sections: DEFAULT_CONFIG.sections,
+test("default config contains only token and cost metrics", () => {
+  assert.deepEqual(DEFAULT_CONFIG, {
     metrics: [
-      { path: "usage.someFutureMetric", label: "Future", format: "number" },
+      { path: "usage.totalTokens", label: "Tokens", format: "tokens" },
+      { path: "usage.cost.total", label: "Cost", format: "usd" },
     ],
   });
-  assert.equal(config.metrics[0]?.path, "usage.someFutureMetric");
 });
 
-test("config accepts metrics from future top-level objects", () => {
+test("config accepts future numeric paths without a package update", () => {
   const config = parseConfig({
-    sections: DEFAULT_CONFIG.sections,
     metrics: [
+      { path: "usage.someFutureMetric", label: "Future", format: "number" },
       { path: "timing.durationMs", label: "Duration", format: "number" },
     ],
   });
-  assert.equal(config.metrics[0]?.path, "timing.durationMs");
+  assert.deepEqual(
+    config.metrics.map((metric) => metric.path),
+    ["usage.someFutureMetric", "timing.durationMs"],
+  );
+});
+
+test("temporary metrics use the full path as label and infer known formats", () => {
+  assert.deepEqual(temporaryMetric("usage.input"), {
+    path: "usage.input",
+    label: "usage.input",
+    format: "tokens",
+  });
+  assert.deepEqual(temporaryMetric("usage.cost.input"), {
+    path: "usage.cost.input",
+    label: "usage.cost.input",
+    format: "usd",
+  });
+  assert.equal(temporaryMetric("timing.durationMs").format, "number");
 });
 
 test("config rejects malformed or unsafe field paths", () => {
@@ -43,7 +48,6 @@ test("config rejects malformed or unsafe field paths", () => {
     assert.throws(
       () =>
         parseConfig({
-          sections: DEFAULT_CONFIG.sections,
           metrics: [{ path, label: "Bad", format: "number" }],
         }),
       /field path/,

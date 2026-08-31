@@ -39,12 +39,6 @@ export type MetricField = string;
 export type MetricFormat = "tokens" | "usd" | "number";
 export type PeriodKey = "today" | "week" | "month" | "all";
 
-export interface SectionConfig {
-  range: PeriodKey;
-  current: boolean;
-  models: boolean;
-}
-
 export interface MetricConfig {
   path: MetricField;
   label: string;
@@ -52,7 +46,6 @@ export interface MetricConfig {
 }
 
 export interface UsageConfig {
-  sections: SectionConfig[];
   metrics: MetricConfig[];
 }
 

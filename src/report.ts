@@ -1,56 +1,32 @@
-import { aggregatePeriod, aggregateRange, metricValue } from "./aggregate.ts";
+import { aggregateRange, metricValue } from "./aggregate.ts";
 import { bucketStart, type TrendBucket } from "./query.ts";
-import type {
-  MetricConfig,
-  MetricTotals,
-  PeriodKey,
-  UsageConfig,
-  UsageRecord,
-} from "./types.ts";
+import type { MetricConfig, MetricTotals, UsageRecord } from "./types.ts";
 
-export function renderUsageMarkdown(options: {
+export function renderSessionMarkdown(options: {
   records: UsageRecord[];
-  config: UsageConfig;
-  currentProject: string;
-  now?: Date;
-  partial?: boolean;
+  sessionId: string;
+  metrics: MetricConfig[];
+  partial: boolean;
 }): string {
-  const lines = ["## Usage"];
-
-  for (const section of options.config.sections) {
-    const totals = aggregatePeriod(
-      options.records,
-      section.range,
-      options.currentProject,
-      options.now,
-    );
-    lines.push("", `### ${sectionTitle(section.range)}`, "");
-
-    if (section.current) {
-      lines.push(
-        `**Current:** ${formatMetrics(totals.currentProject, options.config.metrics)}  `,
-      );
-      lines.push(
-        `**All:** ${formatMetrics(totals.all, options.config.metrics)}`,
-      );
-    } else {
-      lines.push(`**${formatMetrics(totals.all, options.config.metrics)}**`);
-    }
-
-    if (section.models) {
-      lines.push("", renderModelTable(totals.models, options.config.metrics));
-    }
-  }
-
-  if (options.partial)
-    lines.push("", "> History import is running; totals are partial.");
+  const records = options.records.filter(
+    (record) => record.sessionId === options.sessionId,
+  );
+  const totals = aggregateRange(records, null, null, "", true);
+  const lines = [
+    "## Usage · Current session",
+    "",
+    `**${formatMetrics(totals.all, options.metrics)}**`,
+    "",
+    renderModelTable(totals.models, options.metrics),
+  ];
+  appendPartial(lines, options.partial);
   return lines.join("\n");
 }
 
-export function renderRangeMarkdown(options: {
+export function renderSummaryMarkdown(options: {
   records: UsageRecord[];
-  start: number;
-  endExclusive: number;
+  start: number | null;
+  endExclusive: number | null;
   label: string;
   metrics: MetricConfig[];
   partial: boolean;
@@ -136,10 +112,11 @@ export function renderTrendMarkdown(options: {
 export function missingMetricFields(
   records: UsageRecord[],
   metrics: MetricConfig[],
+  includeRollups = false,
 ): string[] {
-  const counted = records.filter(
-    (record) => record.source !== "tool_result_aggregate",
-  );
+  const counted = includeRollups
+    ? records
+    : records.filter((record) => record.source !== "tool_result_aggregate");
   return metrics
     .filter(
       (metric) =>
@@ -153,23 +130,20 @@ export function renderHelpMarkdown(): string {
 
 ### Commands
 
-- \`/usage\` — configured summary
+- \`/usage\` — current session, including tool and subagent rollups
 - \`/usage help\` — this reference
-- \`/usage range <start> <end>\` — totals and models for an inclusive date range
-- \`/usage daily [count]\` — daily trend, default 7 and maximum 365
-- \`/usage weekly [count]\` — weekly trend, default 8 and maximum 104
-- \`/usage monthly [count]\` — monthly trend, default 12 and maximum 60
-- \`/usage daily <start> <end>\`
-- \`/usage weekly <start> <end>\`
-- \`/usage monthly <start> <end>\`
+- \`/usage show <path> [path...]\` — current session with temporary metrics
+- \`/usage today|all|7d|2w|3m\` — global totals and models
+- \`/usage <start> <end>\` — global totals and models for an inclusive date range
+- \`/usage daily|weekly|monthly <range>\` — global trend using the same range syntax
 
-Dates use \`YYYY-MM-DD\`, machine-local time, inclusive endpoints, and Monday-based weeks. Edge weeks or months can be partial.
+Ranges use aligned local calendar days, Monday-based weeks, and calendar months. \`m\` means months. Explicit dates use \`YYYY-MM-DD\` with inclusive endpoints. Current and edge buckets can be partial.
 
 ### Configuration
 
 Path: \`~/.pi/agent/pi-usage/config.json\`
 
-Sections use \`range\` (\`today|week|month|all\`), \`current\` (boolean), and \`models\` (boolean). Metrics use \`path\`, \`label\`, and \`format\` (\`tokens|usd|number\`).
+Configuration contains only \`metrics\`, each with \`path\`, \`label\`, and \`format\` (\`tokens|usd|number\`).
 
 | Field | Meaning |
 |---|---|
@@ -206,13 +180,6 @@ function renderModelTable(
   return [tableRow(header), `|${align.join("|")}|`, ...rows.map(tableRow)].join(
     "\n",
   );
-}
-
-function sectionTitle(range: PeriodKey): string {
-  if (range === "today") return "Today";
-  if (range === "week") return "This week";
-  if (range === "month") return "This month";
-  return "All time";
 }
 
 function appendPartial(lines: string[], partial: boolean): void {
