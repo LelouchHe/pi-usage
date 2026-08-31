@@ -3,36 +3,38 @@ import assert from "node:assert/strict";
 import { DEFAULT_CONFIG, parseConfig } from "../src/config.ts";
 
 test("default config reports today and all time with additive token and cost fields", () => {
-  assert.deepEqual(DEFAULT_CONFIG.periods, [
-    { key: "today", name: "Today", currentProject: true, groupByModel: true },
-    { key: "all", name: "All time", currentProject: false, groupByModel: true },
+  assert.deepEqual(DEFAULT_CONFIG.sections, [
+    { range: "today", current: true, models: true },
+    { range: "all", current: false, models: true },
   ]);
   assert.deepEqual(DEFAULT_CONFIG.metrics, [
-    { field: "usage.totalTokens", name: "Tokens", unit: "tokens" },
-    { field: "usage.cost.total", name: "Cost", unit: "usd" },
+    { path: "usage.totalTokens", label: "Tokens", format: "tokens" },
+    { path: "usage.cost.total", label: "Cost", format: "usd" },
   ]);
 });
 
 test("config accepts future numeric usage paths without a package update", () => {
   const config = parseConfig({
-    periods: DEFAULT_CONFIG.periods,
+    sections: DEFAULT_CONFIG.sections,
     metrics: [
-      { field: "usage.someFutureMetric", name: "Future", unit: "number" },
+      { path: "usage.someFutureMetric", label: "Future", format: "number" },
     ],
   });
-  assert.equal(config.metrics[0]?.field, "usage.someFutureMetric");
+  assert.equal(config.metrics[0]?.path, "usage.someFutureMetric");
 });
 
 test("config accepts metrics from future top-level objects", () => {
   const config = parseConfig({
-    periods: DEFAULT_CONFIG.periods,
-    metrics: [{ field: "timing.durationMs", name: "Duration", unit: "number" }],
+    sections: DEFAULT_CONFIG.sections,
+    metrics: [
+      { path: "timing.durationMs", label: "Duration", format: "number" },
+    ],
   });
-  assert.equal(config.metrics[0]?.field, "timing.durationMs");
+  assert.equal(config.metrics[0]?.path, "timing.durationMs");
 });
 
 test("config rejects malformed or unsafe field paths", () => {
-  for (const field of [
+  for (const path of [
     "",
     "usage..total",
     "usage.__proto__.value",
@@ -41,8 +43,8 @@ test("config rejects malformed or unsafe field paths", () => {
     assert.throws(
       () =>
         parseConfig({
-          periods: DEFAULT_CONFIG.periods,
-          metrics: [{ field, name: "Bad", unit: "number" }],
+          sections: DEFAULT_CONFIG.sections,
+          metrics: [{ path, label: "Bad", format: "number" }],
         }),
       /field path/,
     );

@@ -3,6 +3,7 @@ import { bucketStart, type TrendBucket } from "./query.ts";
 import type {
   MetricConfig,
   MetricTotals,
+  PeriodKey,
   UsageConfig,
   UsageRecord,
 } from "./types.ts";
@@ -16,16 +17,16 @@ export function renderUsageMarkdown(options: {
 }): string {
   const lines = ["## Usage"];
 
-  for (const period of options.config.periods) {
+  for (const section of options.config.sections) {
     const totals = aggregatePeriod(
       options.records,
-      period.key,
+      section.range,
       options.currentProject,
       options.now,
     );
-    lines.push("", `### ${period.name}`, "");
+    lines.push("", `### ${sectionTitle(section.range)}`, "");
 
-    if (period.currentProject) {
+    if (section.current) {
       lines.push(
         `**Current:** ${formatMetrics(totals.currentProject, options.config.metrics)}  `,
       );
@@ -36,7 +37,7 @@ export function renderUsageMarkdown(options: {
       lines.push(`**${formatMetrics(totals.all, options.config.metrics)}**`);
     }
 
-    if (period.groupByModel) {
+    if (section.models) {
       lines.push("", renderModelTable(totals.models, options.config.metrics));
     }
   }
@@ -85,11 +86,9 @@ export function renderTrendMarkdown(options: {
     options.metrics
       .filter(
         (metric) =>
-          !missingMetricFields(options.records, [metric]).includes(
-            metric.field,
-          ),
+          !missingMetricFields(options.records, [metric]).includes(metric.path),
       )
-      .map((metric) => metric.field),
+      .map((metric) => metric.path),
   );
   let cursor = bucketStart(new Date(options.start), options.bucket);
 
@@ -109,8 +108,8 @@ export function renderTrendMarkdown(options: {
       ),
       ...options.metrics.map((metric) =>
         formatMetric(
-          totals[metric.field] ?? (available.has(metric.field) ? 0 : undefined),
-          metric.unit,
+          totals[metric.path] ?? (available.has(metric.path) ? 0 : undefined),
+          metric.format,
         ),
       ),
     ]);
@@ -126,7 +125,7 @@ export function renderTrendMarkdown(options: {
   const lines = [
     `## Usage · ${title}`,
     "",
-    tableRow(["Period", ...options.metrics.map((metric) => metric.name)]),
+    tableRow(["Period", ...options.metrics.map((metric) => metric.label)]),
     `|${["---", ...options.metrics.map(() => "---:")].join("|")}|`,
     ...rows.map(tableRow),
   ];
@@ -144,9 +143,9 @@ export function missingMetricFields(
   return metrics
     .filter(
       (metric) =>
-        !counted.some((record) => metricValue(record, metric.field) !== null),
+        !counted.some((record) => metricValue(record, metric.path) !== null),
     )
-    .map((metric) => metric.field);
+    .map((metric) => metric.path);
 }
 
 export function renderHelpMarkdown(): string {
@@ -170,7 +169,7 @@ Dates use \`YYYY-MM-DD\`, machine-local time, inclusive endpoints, and Monday-ba
 
 Path: \`~/.pi/agent/pi-usage/config.json\`
 
-Periods: \`today\`, \`week\`, \`month\`, \`all\`.
+Sections use \`range\` (\`today|week|month|all\`), \`current\` (boolean), and \`models\` (boolean). Metrics use \`path\`, \`label\`, and \`format\` (\`tokens|usd|number\`).
 
 | Field | Meaning |
 |---|---|
@@ -189,24 +188,31 @@ Periods: \`today\`, \`week\`, \`month\`, \`all\`.
 
 Any safe dot path to an arbitrary nested numeric field can be accumulated, including a future top-level object such as \`timing.durationMs\`. Missing or non-numeric values are skipped; a field absent from every stored record is reported as unavailable.
 
-Metric units: \`tokens\`, \`usd\`, \`number\`.`;
+Metric formats: \`tokens\`, \`usd\`, \`number\`.`;
 }
 
 function renderModelTable(
   models: Array<{ key: string; values: MetricTotals }>,
   metrics: MetricConfig[],
 ): string {
-  const header = ["Model", ...metrics.map((metric) => metric.name)];
+  const header = ["Model", ...metrics.map((metric) => metric.label)];
   const align = ["---", ...metrics.map(() => "---:")];
   const rows = models.map((model) => [
     `\`${escapeTable(model.key)}\``,
     ...metrics.map((metric) =>
-      formatMetric(model.values[metric.field], metric.unit),
+      formatMetric(model.values[metric.path], metric.format),
     ),
   ]);
   return [tableRow(header), `|${align.join("|")}|`, ...rows.map(tableRow)].join(
     "\n",
   );
+}
+
+function sectionTitle(range: PeriodKey): string {
+  if (range === "today") return "Today";
+  if (range === "week") return "This week";
+  if (range === "month") return "This month";
+  return "All time";
 }
 
 function appendPartial(lines: string[], partial: boolean): void {
@@ -253,8 +259,8 @@ function isoDate(date: Date): string {
 function formatMetrics(values: MetricTotals, metrics: MetricConfig[]): string {
   return metrics
     .map((metric) => {
-      const unit = unitLabel(metric.unit);
-      const value = formatMetric(values[metric.field], metric.unit);
+      const unit = unitLabel(metric.format);
+      const value = formatMetric(values[metric.path], metric.format);
       return `${value}${value === "n/a" || !unit ? "" : ` ${unit}`}`;
     })
     .join(" · ");
@@ -262,18 +268,18 @@ function formatMetrics(values: MetricTotals, metrics: MetricConfig[]): string {
 
 function formatMetric(
   value: number | undefined,
-  unit: MetricConfig["unit"],
+  format: MetricConfig["format"],
 ): string {
   if (value === undefined) return "n/a";
-  if (unit === "usd") return `$${value.toFixed(2)}`;
-  if (unit === "tokens") return compactNumber(value);
+  if (format === "usd") return `$${value.toFixed(2)}`;
+  if (format === "tokens") return compactNumber(value);
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(
     value,
   );
 }
 
-function unitLabel(unit: MetricConfig["unit"]): string {
-  return unit === "tokens" ? "tokens" : "";
+function unitLabel(format: MetricConfig["format"]): string {
+  return format === "tokens" ? "tokens" : "";
 }
 
 function compactNumber(value: number): string {

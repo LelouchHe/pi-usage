@@ -80,7 +80,11 @@ test("range report shows total metrics and a model breakdown", () => {
 
 test("missing or non-numeric configured fields render as n/a and are reported", () => {
   const metrics = [
-    { field: "timing.durationMs", name: "Duration", unit: "number" as const },
+    {
+      path: "timing.durationMs",
+      label: "Duration",
+      format: "number" as const,
+    },
   ];
   const markdown = renderRangeMarkdown({
     records,

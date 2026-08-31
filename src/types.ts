@@ -36,24 +36,23 @@ export interface UsageRecord {
 }
 
 export type MetricField = string;
-export type MetricUnit = "tokens" | "usd" | "number";
+export type MetricFormat = "tokens" | "usd" | "number";
 export type PeriodKey = "today" | "week" | "month" | "all";
 
-export interface PeriodConfig {
-  key: PeriodKey;
-  name: string;
-  currentProject: boolean;
-  groupByModel: boolean;
+export interface SectionConfig {
+  range: PeriodKey;
+  current: boolean;
+  models: boolean;
 }
 
 export interface MetricConfig {
-  field: MetricField;
-  name: string;
-  unit: MetricUnit;
+  path: MetricField;
+  label: string;
+  format: MetricFormat;
 }
 
 export interface UsageConfig {
-  periods: PeriodConfig[];
+  sections: SectionConfig[];
   metrics: MetricConfig[];
 }
 

@@ -1,62 +1,59 @@
-import type { MetricConfig, PeriodConfig, UsageConfig } from "./types.ts";
+import type { MetricConfig, SectionConfig, UsageConfig } from "./types.ts";
 
 export const DEFAULT_CONFIG: UsageConfig = {
-  periods: [
-    { key: "today", name: "Today", currentProject: true, groupByModel: true },
-    { key: "all", name: "All time", currentProject: false, groupByModel: true },
+  sections: [
+    { range: "today", current: true, models: true },
+    { range: "all", current: false, models: true },
   ],
   metrics: [
-    { field: "usage.totalTokens", name: "Tokens", unit: "tokens" },
-    { field: "usage.cost.total", name: "Cost", unit: "usd" },
+    { path: "usage.totalTokens", label: "Tokens", format: "tokens" },
+    { path: "usage.cost.total", label: "Cost", format: "usd" },
   ],
 };
 
-const PERIODS = new Set(["today", "week", "month", "all"]);
-const UNITS = new Set(["tokens", "usd", "number"]);
+const RANGES = new Set(["today", "week", "month", "all"]);
+const FORMATS = new Set(["tokens", "usd", "number"]);
 const UNSAFE_PATH_SEGMENTS = new Set(["__proto__", "prototype", "constructor"]);
 
 export function parseConfig(value: unknown): UsageConfig {
   if (!value || typeof value !== "object")
     return structuredClone(DEFAULT_CONFIG);
-  const raw = value as { periods?: unknown; metrics?: unknown };
-  if (!Array.isArray(raw.periods) || !Array.isArray(raw.metrics)) {
-    throw new Error("Config must contain periods and metrics arrays");
+  const raw = value as { sections?: unknown; metrics?: unknown };
+  if (!Array.isArray(raw.sections) || !Array.isArray(raw.metrics)) {
+    throw new Error("Config must contain sections and metrics arrays");
   }
 
-  const periods = raw.periods.map(parsePeriod);
+  const sections = raw.sections.map(parseSection);
   const metrics = raw.metrics.map(parseMetric);
-  if (periods.length === 0 || metrics.length === 0)
-    throw new Error("Config periods and metrics cannot be empty");
-  return { periods, metrics };
+  if (sections.length === 0 || metrics.length === 0)
+    throw new Error("Config sections and metrics cannot be empty");
+  return { sections, metrics };
 }
 
-function parsePeriod(value: unknown): PeriodConfig {
-  const item = value as Partial<PeriodConfig>;
-  if (!PERIODS.has(String(item.key)))
-    throw new Error(`Unsupported period: ${String(item.key)}`);
-  if (typeof item.name !== "string" || !item.name.trim())
-    throw new Error("Period name is required");
+function parseSection(value: unknown): SectionConfig {
+  const item = value as Partial<SectionConfig>;
+  if (!RANGES.has(String(item.range)))
+    throw new Error(`Unsupported section range: ${String(item.range)}`);
   return {
-    key: item.key as PeriodConfig["key"],
-    name: item.name.trim(),
-    currentProject: item.currentProject === true,
-    groupByModel: item.groupByModel === true,
+    range: item.range as SectionConfig["range"],
+    current: item.current === true,
+    models: item.models === true,
   };
 }
 
 function parseMetric(value: unknown): MetricConfig {
   const item = value as Partial<MetricConfig>;
-  if (typeof item.field !== "string" || !isSafeFieldPath(item.field)) {
-    throw new Error(`Invalid metric field path: ${String(item.field)}`);
+  if (typeof item.path !== "string" || !isSafeFieldPath(item.path)) {
+    throw new Error(`Invalid metric field path: ${String(item.path)}`);
   }
-  if (typeof item.name !== "string" || !item.name.trim())
-    throw new Error("Metric name is required");
-  if (!UNITS.has(String(item.unit)))
-    throw new Error(`Unsupported metric unit: ${String(item.unit)}`);
+  if (typeof item.label !== "string" || !item.label.trim())
+    throw new Error("Metric label is required");
+  if (!FORMATS.has(String(item.format)))
+    throw new Error(`Unsupported metric format: ${String(item.format)}`);
   return {
-    field: item.field,
-    name: item.name.trim(),
-    unit: item.unit as MetricConfig["unit"],
+    path: item.path,
+    label: item.label.trim(),
+    format: item.format as MetricConfig["format"],
   };
 }
 

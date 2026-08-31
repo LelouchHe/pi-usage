@@ -9,7 +9,7 @@ Configurable token and estimated-cost reporting for [Pi](https://pi.dev), with f
 - Includes compaction and branch-summary usage while preserving parent ToolResult aggregates separately and excluding them from totals to avoid double-counting subagents.
 - Stores only usage metadata, partitioned by month under `~/.pi/agent/pi-usage/`.
 - Produces one canonical Markdown report in Pi TUI and ACP clients such as WebAgent.
-- Configures periods and additive metrics without changing the collector.
+- Configures report sections and additive metrics without changing the collector.
 
 ## Install
 
@@ -76,38 +76,54 @@ Create `~/.pi/agent/pi-usage/config.json` to override the default report:
 
 ```json
 {
-  "periods": [
+  "sections": [
     {
-      "key": "today",
-      "name": "Today",
-      "currentProject": true,
-      "groupByModel": true
+      "range": "today",
+      "current": true,
+      "models": true
     },
     {
-      "key": "all",
-      "name": "All time",
-      "currentProject": false,
-      "groupByModel": true
+      "range": "all",
+      "current": false,
+      "models": true
     }
   ],
   "metrics": [
     {
-      "field": "usage.totalTokens",
-      "name": "Tokens",
-      "unit": "tokens"
+      "path": "usage.totalTokens",
+      "label": "Tokens",
+      "format": "tokens"
     },
     {
-      "field": "usage.cost.total",
-      "name": "Cost",
-      "unit": "usd"
+      "path": "usage.cost.total",
+      "label": "Cost",
+      "format": "usd"
     }
   ]
 }
 ```
 
-Supported periods are `today`, `week`, `month`, and `all`. Period boundaries use the machine's local timezone, and weeks start on Monday.
+All configuration properties are required. The values above are the complete defaults.
 
-A metric `field` can be any safe dot path whose final value is a finite number. The complete Pi Usage object is stored without dropping unknown fields, so newly added Pi metrics can be configured without updating this package. Missing or non-numeric values are skipped; a field absent from all stored records produces `n/a` and a warning.
+### Section properties
+
+| Property  | Values                          | Meaning                                                                  |
+| --------- | ------------------------------- | ------------------------------------------------------------------------ |
+| `range`   | `today`, `week`, `month`, `all` | Time range shown by this section                                         |
+| `current` | `true`, `false`                 | Also show the current canonical cwd; all-project totals are always shown |
+| `models`  | `true`, `false`                 | Show a `provider/model` breakdown                                        |
+
+Period boundaries use the machine's local timezone, and weeks start on Monday. Section titles are derived from `range`.
+
+### Metric properties
+
+| Property | Values                    | Meaning                                                           |
+| -------- | ------------------------- | ----------------------------------------------------------------- |
+| `path`   | Safe dot path             | Numeric value to accumulate                                       |
+| `label`  | Non-empty string          | Markdown table heading                                            |
+| `format` | `tokens`, `usd`, `number` | Compact tokens, `$` with two decimals, or locale-formatted number |
+
+A metric `path` can be any safe dot path whose final value is a finite number. The complete Pi Usage object is stored without dropping unknown fields, so newly added Pi metrics can be configured without updating this package. Missing or non-numeric values are skipped; a path absent from all stored records produces `n/a` and a warning.
 
 Paths are not restricted to `usage.*`; future record objects such as `timing.durationMs` use the same lookup mechanism.
 
