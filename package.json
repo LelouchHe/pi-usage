@@ -1,0 +1,67 @@
+{
+  "name": "@lelouchhe/pi-usage",
+  "version": "0.1.0",
+  "description": "Configurable usage and cost reporting for Pi coding agent",
+  "type": "module",
+  "license": "MIT",
+  "author": "LelouchHe",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LelouchHe/pi-usage.git"
+  },
+  "homepage": "https://github.com/LelouchHe/pi-usage#readme",
+  "bugs": {
+    "url": "https://github.com/LelouchHe/pi-usage/issues"
+  },
+  "files": [
+    "src"
+  ],
+  "pi": {
+    "extensions": [
+      "./src/index.ts"
+    ]
+  },
+  "scripts": {
+    "test": "node --import tsx --test test/**/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --max-warnings 0",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "pack:check": "npm pack --dry-run",
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run pack:check",
+    "prepare": "husky",
+    "prepublishOnly": "npm run check"
+  },
+  "lint-staged": {
+    "*.{ts,js,mjs,cjs}": [
+      "prettier --write",
+      "eslint --fix"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": ">=0.84.0",
+    "@earendil-works/pi-tui": ">=0.84.0"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "0.84.3",
+    "@earendil-works/pi-tui": "0.84.3",
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.0.0",
+    "eslint": "^10.9.1",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.11.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
+    "prettier": "^3.9.6",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.0",
+    "typescript-eslint": "^8.68.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

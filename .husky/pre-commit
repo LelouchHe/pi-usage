@@ -1,0 +1,9 @@
+npx lint-staged
+
+STAGED_TESTS=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^test/.*\.ts$' || true)
+if [ -n "$STAGED_TESTS" ]; then
+  if echo "$STAGED_TESTS" | xargs grep -Hn -E '(describe|test|it)\.only\(' 2>/dev/null; then
+    echo "Refusing to commit: '.only' found in staged tests."
+    exit 1
+  fi
+fi
