@@ -100,11 +100,10 @@ test("missing or non-numeric configured fields render as n/a and are reported", 
   ]);
 });
 
-test("help documents query syntax and known fields as examples", () => {
+test("help is a concise command reference that links to full documentation", () => {
   const help = renderHelpMarkdown();
   assert.match(help, /\/usage show <path>/);
   assert.match(help, /daily\|weekly\|monthly <range>/);
-  assert.match(help, /usage\.cacheWrite1h/);
-  assert.match(help, /subset of `usage\.output`/);
-  assert.match(help, /arbitrary nested numeric field/);
+  assert.match(help, /github\.com\/LelouchHe\/pi-usage/);
+  assert.doesNotMatch(help, /usage\.cacheWrite1h/);
 });

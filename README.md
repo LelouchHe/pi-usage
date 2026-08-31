@@ -9,7 +9,7 @@ Configurable token and estimated-cost reporting for [Pi](https://pi.dev), with f
 - Includes compaction and branch-summary usage while preserving parent ToolResult aggregates separately and excluding them from totals to avoid double-counting subagents.
 - Stores only usage metadata, partitioned by month under `~/.pi/agent/pi-usage/`.
 - Produces one canonical Markdown report in Pi TUI and ACP clients such as WebAgent.
-- Configures report sections and additive metrics without changing the collector.
+- Configures additive report metrics without changing the collector.
 
 ## Install
 
@@ -108,6 +108,15 @@ Current Pi Usage fields include:
 - `usage.cost.total`
 
 `reasoning` is already part of `output`, and `cacheWrite1h` is already part of `cacheWrite`; do not add these fields together to derive a total.
+
+## Synthetic model labels
+
+Most model rows use the actual `provider/model` reported by Pi. Two rows are labels created by Pi Usage, not real providers or models defined by Pi:
+
+- `pi/summaries` — compaction and branch-summary entries contain real Usage but do not identify the model that generated the summary, so Pi Usage groups them here.
+- `pi/tool-aggregates` — ToolResult usage reported to a parent Session, including Subagent or other nested model work. Current-Session reports include it; global reports exclude it because the underlying Subagent Sessions are counted independently.
+
+The underlying Usage values come from Pi; only these fallback grouping names are defined by this extension.
 
 ## Data
 

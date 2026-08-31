@@ -143,26 +143,7 @@ Ranges use aligned local calendar days, Monday-based weeks, and calendar months.
 
 Path: \`~/.pi/agent/pi-usage/config.json\`
 
-Configuration contains only \`metrics\`, each with \`path\`, \`label\`, and \`format\` (\`tokens|usd|number\`).
-
-| Field | Meaning |
-|---|---|
-| \`usage.input\` | Uncached input tokens |
-| \`usage.output\` | Output tokens, including reasoning |
-| \`usage.cacheRead\` | Tokens read from prompt cache |
-| \`usage.cacheWrite\` | Tokens written to prompt cache |
-| \`usage.cacheWrite1h\` | One-hour cache writes; subset of \`usage.cacheWrite\` |
-| \`usage.reasoning\` | Reasoning tokens; subset of \`usage.output\` |
-| \`usage.totalTokens\` | Total reported by Pi |
-| \`usage.cost.input\` | Estimated input cost |
-| \`usage.cost.output\` | Estimated output cost |
-| \`usage.cost.cacheRead\` | Estimated cache-read cost |
-| \`usage.cost.cacheWrite\` | Estimated cache-write cost |
-| \`usage.cost.total\` | Total estimated cost |
-
-Any safe dot path to an arbitrary nested numeric field can be accumulated, including a future top-level object such as \`timing.durationMs\`. Missing or non-numeric values are skipped; a field absent from every stored record is reported as unavailable.
-
-Metric formats: \`tokens\`, \`usd\`, \`number\`.`;
+Full documentation: https://github.com/LelouchHe/pi-usage`;
 }
 
 function renderModelTable(
