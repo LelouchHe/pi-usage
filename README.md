@@ -140,3 +140,16 @@ Project identity uses canonical cwd for aggregation. Display names prefer `repos
 npm install
 npm run check
 ```
+
+### Releasing
+
+Release from `main`. Choose the SemVer bump and add the matching `CHANGELOG.md` section with its `[<version>]:` compare link, then tag that commit:
+
+```bash
+npm version <patch|minor|major> --no-git-tag-version
+git commit -m 'v<version>'
+git tag -a 'v<version>' -m 'v<version>'
+git push origin main 'v<version>'
+```
+
+Pushing the `v*` tag runs the full check, publishes to npm with provenance, and creates the GitHub Release from the changelog section plus its compare link. The workflow needs an `NPM_TOKEN` repository secret: a granular access token with read-and-write access to the package, whose 2FA mode is set to "Bypass".
