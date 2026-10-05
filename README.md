@@ -78,7 +78,7 @@ Create `~/.pi/agent/pi-usage/config.json` to override the default report:
 }
 ```
 
-All configuration properties are required. The values above are the complete defaults. Command arguments determine the report range and layout; configuration only chooses metrics.
+All configuration properties are required. The values above are the complete defaults. Command arguments determine the report range and layout; configuration only chooses metrics. The file is read on every `/usage` invocation, so edits take effect without restarting Pi; a file that fails validation is reported as a warning and the built-in defaults are used.
 
 ### Metric properties
 
@@ -108,6 +108,8 @@ Current Pi Usage fields include:
 - `usage.cost.total`
 
 `reasoning` is already part of `output`, and `cacheWrite1h` is already part of `cacheWrite`; do not add these fields together to derive a total.
+
+Cost values are computed by Pi from the model's catalog price, not reported by the provider: Pi applies the rate per 1M tokens, selects the applicable tier by `input + cacheRead + cacheWrite`, and charges 1h cache writes at twice the input rate inside `cost.cacheWrite`.
 
 ## Synthetic model labels
 
