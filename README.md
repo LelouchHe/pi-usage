@@ -17,7 +17,7 @@ Configurable token and estimated-cost reporting for [Pi](https://pi.dev), with f
 pi install npm:@lelouchhe/pi-usage
 ```
 
-Until the npm package is published, install from GitHub:
+You can also install from GitHub, which tracks `main`:
 
 ```bash
 pi install git:github.com/LelouchHe/pi-usage

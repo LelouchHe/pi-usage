@@ -2,6 +2,9 @@
   "name": "@lelouchhe/pi-usage",
   "version": "0.1.0",
   "description": "Configurable usage and cost reporting for Pi coding agent",
+  "keywords": [
+    "pi-package"
+  ],
   "type": "module",
   "license": "MIT",
   "author": "LelouchHe",
